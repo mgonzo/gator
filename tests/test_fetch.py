@@ -25,19 +25,23 @@ def test_addQuery_WithCategory():
     category = 'CAT'
     assert fetch.addQuery(string, query, category) == "someurl/search/CAT?query=myquery"
 
-def test_processHtml_NoHtml():
+def test_getDataFromHtml_NoHtml():
     html = None
-    assert fetch.processHtml(html) == None
+    assert fetch.getDataFromHtml(html) == None
 
-def test_processHtml_NoResults():
+def test_getDataFromHtml_NoResults():
     html = '<html><body><div class="noresults"></div></body></html>'
-    assert fetch.processHtml(html) == None
+    assert fetch.getDataFromHtml(html) == None
 
-def test_processHtml():
+def test_getDataFromHtml():
     html = '<html><body><div></div></body></html>'
-    soup = fetch.processHtml(html)
-    assert len(soup.find('html')) == 1
+    data = fetch.getDataFromHtml(html)
+    assert len(data) >= 1
 
-def test_formatResults():
-    # assert that we get data back from some fixture html
-    assert False
+def test_storeData_NoData():
+    data = None
+    assert fetch.storeData(data) == None 
+
+def test_storeData_NoDataLen():
+    data = list()
+    assert fetch.storeData(data) == None 
