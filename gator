@@ -13,7 +13,8 @@ def addArg(string, arg, name=None):
 def fetch(query, category):
   links = getList(query, category)
   for link in links:
-    storeResults(formatResults(processLink(link)))
+    html = fetchHtml(link)
+    storeResults(formatResults(processHtml(html)))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="the command to run")

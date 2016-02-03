@@ -45,14 +45,13 @@ def addQuery(string, query, category):
   return string + 'search/{0!s}?query={1!s}'.format(category, query)
 
 #
-def processLink(link):
-  html = fetchHtml(link)
+def processHtml(html):
   if(html == None):
     return None
-  htmlParsed = BeautifulSoup(html, 'html.parser')
-  if (hasNoResults(htmlParsed)):
+  soup = BeautifulSoup(html, 'html.parser')
+  if (hasNoResults(soup)):
     return None
-  return htmlParsed
+  return soup
 
 #
 def formatResults(soup):

@@ -25,9 +25,18 @@ def test_addQuery_WithCategory():
     category = 'CAT'
     assert fetch.addQuery(string, query, category) == "someurl/search/CAT?query=myquery"
 
-def test_processLink_Fail():
-    link = 'badrequest'
-    assert fetch.processLink(link) == None
+def test_processHtml_NoHtml():
+    html = None
+    assert fetch.processHtml(html) == None
+
+def test_processHtml_NoResults():
+    html = '<html><body><div class="noresults"></div></body></html>'
+    assert fetch.processHtml(html) == None
+
+def test_processHtml():
+    html = '<html><body><div></div></body></html>'
+    soup = fetch.processHtml(html)
+    assert len(soup.find('html')) == 1
 
 def test_formatResults():
     # assert that we get data back from some fixture html
