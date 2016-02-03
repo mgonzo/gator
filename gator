@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+
+import argparse
+import subprocess
+from commands.fetch import *
+
+def addArg(string, arg, name=None):
+    if(name == None):
+        return string + ' {0!s}'.format(arg)
+
+    return string + ' --{0!s}={1!s}'.format(name, arg)
+
+def fetch(query, category):
+  links = getList(query, category)
+  for link in links:
+    storeResults(formatResults(processLink(link)))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("command", help="the command to run")
+parser.add_argument("--query", help="the query string")
+parser.add_argument("--category", help="optional category to search")
+args = parser.parse_args()
+
+if (args.command == 'fetch'):
+    fetch(args.query, args.category)
+
