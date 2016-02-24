@@ -2,3 +2,6 @@ notes/
 __pycache__/
 .cache/
 deprecated/
+db/
+mocks/
+*.bak

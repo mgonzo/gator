@@ -11,10 +11,10 @@ def addArg(string, arg, name=None):
     return string + ' --{0!s}={1!s}'.format(name, arg)
 
 def fetch(query, category):
-  links = getList(query, category)
-  for link in links:
-    html = fetchHtml(link)
-    storeData(getDataFromHtml(html))
+    links = getList(query, category)
+    for link in links:
+        html = fetchHtml(link)
+        storeData(getDataFromHtml(html))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="the command to run")
@@ -24,4 +24,3 @@ args = parser.parse_args()
 
 if (args.command == 'fetch'):
     fetch(args.query, args.category)
-

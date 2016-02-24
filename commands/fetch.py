@@ -8,68 +8,140 @@ import re
 
 #
 def fetchHtml(url):
-  print('Fetching '+ url)
-  try:
-    response = urlopen(url)
+    print('Fetching '+ url)
+    try:
+        response = urlopen(url)
 
-  except error.HTTPError as e:
-    print('HTTPError = ' + str(e.code))
-    return None
+    except error.HTTPError as e:
+        print('HTTPError = ' + str(e.code))
+        return None
 
-  except error.URLError as e:
-    print('URLError = ' + str(e.reason))
-    return None
+    except error.URLError as e:
+        print('URLError = ' + str(e.reason))
+        return None
 
-  except http.client.HTTPException as e:
-    print('HTTPException')
-    return None
+    except http.client.HTTPException as e:
+        print('HTTPException')
+        return None
 
-  except Exception as e:
-    import traceback
-    print('generic exception: ' + traceback.format_exc())
-    return None
+    except Exception as e:
+        import traceback
+        print('generic exception: ' + traceback.format_exc())
+        return None
 
-  return response.read()
-
-#
-def hasNoResults(soup):
-  noresults = len(soup.find_all('div', class_="noresults"))
-  if(noresults > 0):
-    return True
-  return False
-
-#
-def addQuery(string, query, category):
-  if(category == None):
-    category = 'sss'
-  return string + 'search/{0!s}?query={1!s}'.format(category, query)
-
-#
-def getDataFromHtml(html):
-  if(html == None):
-    return None
-  soup = BeautifulSoup(html, 'html.parser')
-  if (hasNoResults(soup)):
-    return None
-  data = list()
-  return data
-
-#
-def storeData(data):
-  print('store results')
-  if (data == None):
-    return
-  if(len(data) <= 0 ):
-    return None
+    return response.read()
 
 #
 def getList(query, category):
-  sites = 'http://www.craigslist.org/about/sites'
-  html = fetchHtml(sites)
-  htmlParsed = BeautifulSoup(html, 'html.parser')
-  h1 = htmlParsed.find('a', attrs={'name':'US'}).parent
-  div = h1.next_sibling.next_sibling
-  links = list()
-  for link in div.find_all('a', href = re.compile('org')):
-    links.append(addQuery('http:' + link.get('href'), query, category))
-  return links
+    sites = 'http://www.craigslist.org/about/sites'
+    html = fetchHtml(sites)
+    htmlParsed = BeautifulSoup(html, 'html.parser')
+    h1 = htmlParsed.find('a', attrs={'name':'US'}).parent
+    div = h1.next_sibling.next_sibling
+    links = list()
+    for link in div.find_all('a', href = re.compile('org')):
+        links.append(addQuery('http:' + link.get('href'), query, category))
+    return links
+
+#
+def hasNoResults(soup):
+    noresults = len(soup.find_all('div', class_="noresults"))
+    if(noresults > 0):
+        return True
+    return False
+
+#
+def addQuery(string, query, category):
+    if(category == None):
+        category = 'sss'
+    return string + 'search/{0!s}?query={1!s}'.format(category, query)
+
+# url is a string
+# return None if no url
+def getUrl(tag):
+    if(tag == None):
+        return None
+
+    a = tag.find('a', class_="i")
+    if (a == None):
+        return None
+
+    url = a.attrs['href']
+    return url
+
+# price is an int
+# return None if no price
+def getPrice(tag):
+    if(tag == None):
+        return None
+
+    span = tag.find('span', class_="price")
+    if (span == None):
+        return None
+
+    price = int(span.contents[0][1:])
+    return price
+
+# title is a string
+# return None if no title
+def getTitle(tag):
+    if(tag == None):
+        return None
+
+    a = tag.find('a', class_="hdrlnk")
+    if (a == None):
+        return None
+
+    title = a.contents[0]
+    return title
+
+#
+# should pass in only the iterator
+# and call next(iter) on first line
+# instead of calling next(iter) before
+# calling this function
+def parseRow(tags, data):
+    try:
+        tag = next(tags)
+
+        if (tag.name == 'h4'):
+            return [] 
+
+        row = dict()
+        row['url'] = getUrl(tag)
+        row['price'] = getPrice(tag)
+        row['title'] = getTitle(tag)
+        data.append(row)
+        parseRow(tags, data)
+
+    except StopIteration:
+        return []
+
+    except TypeError:
+        return []
+
+    except NameError:
+        return []
+
+    except AttributeError:
+        return []
+
+    return data
+
+#
+def getDataFromHtml(html):
+    if(html == None):
+        return None
+    soup = BeautifulSoup(html, 'html.parser')
+    if (hasNoResults(soup)):
+        return None
+    data = list()
+    return data
+
+#
+def storeData(data):
+    if (data == None):
+        return None
+    if(len(data) <= 0 ):
+        return None
+    print('store results')
