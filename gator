@@ -2,6 +2,8 @@
 
 import argparse
 import subprocess
+import sqlite3
+
 from commands.fetch import *
 
 def addArg(string, arg, name=None):
@@ -11,10 +13,14 @@ def addArg(string, arg, name=None):
     return string + ' --{0!s}={1!s}'.format(name, arg)
 
 def fetch(query, category):
+    db = 'db/gator.db'
+    connection = sqlite3.connect(db)
+    cursor = connection.cursor()
     links = getList(query, category)
+
     for link in links:
         html = fetchHtml(link)
-        storeData(getDataFromHtml(html))
+        storeData(cursor, getDataFromHtml(html))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="the command to run")

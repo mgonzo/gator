@@ -1,5 +1,7 @@
 from ..commands import fetch
 from bs4 import BeautifulSoup
+import os
+import sqlite3
 
 def test_fetchHtml():
     assert fetch.fetchHtml('badrequest') == None
@@ -59,24 +61,24 @@ def test_getTitle():
     assert fetch.getUrl(soup) == None
 
 
-def test_parseRow():
+def test_parseRows():
 
     # if next tag in list is empty return blank list
     empty = iter([])
     data = list()
 
-    emptyTags = fetch.parseRow(empty, data)
+    emptyTags = fetch.parseRows(empty, data)
     assert len(emptyTags) < 1
 
     h4Str = '<h4>some text here</h4>'
     h4Soup = BeautifulSoup(h4Str, "html.parser").find('h4')
     h4 = iter([h4Soup])
-    assert len(fetch.parseRow(h4, data)) < 1
+    assert len(fetch.parseRows(h4, data)) < 1
 
     newlineStr = '<p>\n</p>'
     newlineSoup = BeautifulSoup(newlineStr, "html.parser").find('p').children
     newline = iter([next(newlineSoup)])
-    assert len(fetch.parseRow(newline, data)) < 1
+    assert len(fetch.parseRows(newline, data)) < 1
 
     oneRowHtml = '''<span class="rows"><p class="row" data-pid="5372351858">
                 <a href="/boa/5372351858.html" class="i"> <span class="price">$1000</span></a>
@@ -87,7 +89,7 @@ def test_parseRow():
     oneTag = oneRow.children
 
     testOneRow = [{'url': '/boa/5372351858.html', 'price': 1000, 'title': 'Sunfish Sailboat'}]
-    assert fetch.parseRow(oneTag, data) == testOneRow
+    assert fetch.parseRows(oneTag, data) == testOneRow
 
     twoRowsHtml = '''<span class="rows"><p class="row" data-pid="5372351858">
                 <a href="/boa/5372351858.html" class="i"> <span class="price">$1000</span></a>
@@ -105,7 +107,7 @@ def test_parseRow():
         {'url': '/boa/0000000000.html', 'price': 500, 'title': 'Two Sunfish Sailboat'}
     ]
 
-    assert fetch.parseRow(twoTags, data) == testTwoRows
+    assert fetch.parseRows(twoTags, data) == testTwoRows
 
     threeRowsHtml = '''<span class="rows"><p class="row" data-pid="5372351858">
                 <a href="/boa/5372351858.html" class="i"> <span class="price">$1000</span></a>
@@ -126,7 +128,7 @@ def test_parseRow():
         {'url': '/boa/1111111111.html', 'price': 1500, 'title': 'Three Sunfish Sailboat'}
     ]
 
-    assert fetch.parseRow(threeTags, data) == testThreeRows
+    assert fetch.parseRows(threeTags, data) == testThreeRows
 
 
 def test_getDataFromHtml():
@@ -135,14 +137,58 @@ def test_getDataFromHtml():
     noresults = '<html><body><div class="noresults"></div></body></html>'
     assert fetch.getDataFromHtml(noresults) == None
 
-    html = ''
-    data = fetch.getDataFromHtml(html)
-    assert len(data) >= 1
+    twoRowsHtml = '''<span class="rows"><p class="row" data-pid="5372351858">
+                <a href="/boa/5372351858.html" class="i"> <span class="price">$1000</span></a>
+                <a class="hdrlnk">Sunfish Sailboat</a></p><p class="row" data-pid="0000000000">
+                <a href="/boa/0000000000.html" class="i"> <span class="price">$500</span></a>
+                <a class="hdrlnk">Two Sunfish Sailboat</a></p></span>'''
 
+    twoSoup = BeautifulSoup(twoRowsHtml, "html.parser")
+    twoRows = twoSoup.find('span', class_="rows")
+    twoTags = twoRows.children
+
+    testTwoRows = [
+        {'url': '/boa/5372351858.html', 'price': 1000, 'title': 'Sunfish Sailboat'},
+        {'url': '/boa/0000000000.html', 'price': 500, 'title': 'Two Sunfish Sailboat'}
+    ]
+
+    data = fetch.getDataFromHtml(twoRowsHtml)
+    assert len(data) > 1
+    assert data == testTwoRows
+
+#
+# takes data in
+# stores in a sqlite file
+# maybe pass in the sqlite filename at runtime
+# assert that the data has been saved correctly
+#   by retreiving expected results from db
+# assert success message
+# assert failure message
 def test_storeData():
+    db = 'tests/db/example.db'
+    connection = sqlite3.connect(db)
+    cursor = connection.cursor()
+
     nodata = None
-    assert fetch.storeData(nodata) == None
+    assert fetch.storeData(cursor, nodata) == None
 
-    emptydata= list()
-    assert fetch.storeData(emptydata) == None
+    emptydata = list()
+    assert fetch.storeData(cursor, emptydata) == None
 
+    data = [
+        {'url': '/boa/5372351858.html', 'price': 1000, 'title': 'Sunfish Sailboat'},
+        {'url': '/boa/0000000000.html', 'price': 500, 'title': 'Two Sunfish Sailboat'}
+    ]
+
+    fetch.storeData(cursor, data)
+    cursor.execute('select * from results')
+
+    firstrow = cursor.fetchone()
+    assert firstrow == ('/boa/5372351858.html', 1000.0, 'Sunfish Sailboat')
+
+    secondrow = cursor.fetchone()
+    assert secondrow == ('/boa/0000000000.html', 500.0, 'Two Sunfish Sailboat')
+
+    # clean up
+    if os.path.isfile(db):
+        os.remove(db)

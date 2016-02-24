@@ -100,7 +100,7 @@ def getTitle(tag):
 # and call next(iter) on first line
 # instead of calling next(iter) before
 # calling this function
-def parseRow(tags, data):
+def parseRows(tags, data):
     try:
         tag = next(tags)
 
@@ -112,7 +112,7 @@ def parseRow(tags, data):
         row['price'] = getPrice(tag)
         row['title'] = getTitle(tag)
         data.append(row)
-        parseRow(tags, data)
+        parseRows(tags, data)
 
     except StopIteration:
         return []
@@ -129,19 +129,45 @@ def parseRow(tags, data):
     return data
 
 #
+# get the tags list
+# call parseRows
+# return data
 def getDataFromHtml(html):
     if(html == None):
         return None
+
     soup = BeautifulSoup(html, 'html.parser')
+
     if (hasNoResults(soup)):
         return None
-    data = list()
+
+    rows = soup.find('span', class_="rows")
+    tags = rows.children
+    data = parseRows(tags, [])
     return data
 
 #
-def storeData(data):
+# recursively store each row
+def storeRow(cursor, data):
+    try:
+        row = next(data)
+        cursor.execute('''insert into results (url, price, title) 
+            values(:url, :price, :title)''', row)
+
+        storeRow(cursor, data)
+    except StopIteration:
+        return []
+
+#
+# use supplied db cursor to act on db
+# store data from list
+# print out success or failure
+def storeData(cursor, data):
     if (data == None):
         return None
+
     if(len(data) <= 0 ):
         return None
-    print('store results')
+
+    cursor.execute('create table if not exists results (url text, price real, title text)')
+    storeRow(cursor, iter(data))
