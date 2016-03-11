@@ -17,10 +17,14 @@ def fetch(query, category):
     connection = sqlite3.connect(db)
     cursor = connection.cursor()
     links = getList(query, category)
-
+    cursor.execute('create table if not exists results (url text, price real, title text)')
+    
     for link in links:
         html = fetchHtml(link)
         storeData(cursor, getDataFromHtml(html))
+
+    connection.commit()
+    connection.close()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="the command to run")

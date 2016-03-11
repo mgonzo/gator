@@ -40,26 +40,30 @@ def getList(query, category):
     div = h1.next_sibling.next_sibling
     links = list()
     for link in div.find_all('a', href = re.compile('org')):
+        # skip mobile
+        if (link.get('href') == "//mobile.craigslist.org/"):
+            continue
         links.append(addQuery('http:' + link.get('href'), query, category))
     return links
 
 #
 def hasNoResults(soup):
     noresults = len(soup.find_all('div', class_="noresults"))
-    if(noresults > 0):
+    if (noresults > 0):
+        print('No Results')
         return True
     return False
 
 #
 def addQuery(string, query, category):
-    if(category == None):
+    if (category == None):
         category = 'sss'
     return string + 'search/{0!s}?query={1!s}'.format(category, query)
 
 # url is a string
 # return None if no url
 def getUrl(tag):
-    if(tag == None):
+    if (tag == None):
         return None
 
     a = tag.find('a', class_="i")
@@ -88,11 +92,11 @@ def getTitle(tag):
     if(tag == None):
         return None
 
-    a = tag.find('a', class_="hdrlnk")
-    if (a == None):
+    span = tag.find('span', id="titletextonly")
+    if (span == None):
         return None
 
-    title = a.contents[0]
+    title = span.contents[0]
     return title
 
 #
@@ -103,14 +107,19 @@ def getTitle(tag):
 def parseRows(tags, data):
     try:
         tag = next(tags)
-
-        if (tag.name == 'h4'):
-            return [] 
-
         row = dict()
         row['url'] = getUrl(tag)
         row['price'] = getPrice(tag)
         row['title'] = getTitle(tag)
+
+        if (not isinstance(row['url'], str)):
+            return []
+
+        # full urls are non local results
+        if (len(row['url'].split('/')) > 4):
+            return []
+
+        print(row)
         data.append(row)
         parseRows(tags, data)
 
@@ -141,33 +150,25 @@ def getDataFromHtml(html):
     if (hasNoResults(soup)):
         return None
 
-    rows = soup.find('span', class_="rows")
-    tags = rows.children
-    data = parseRows(tags, [])
-    return data
+    content = soup.find('div', class_="content")
+    tags = content.findAll('p', class_="row")
+    data = parseRows(iter(tags), [])
+    return iter(data)
 
 #
 # recursively store each row
-def storeRow(cursor, data):
+# use supplied db cursor to act on db
+# store data from list
+def storeData(cursor, data):
     try:
         row = next(data)
         cursor.execute('''insert into results (url, price, title) 
             values(:url, :price, :title)''', row)
 
-        storeRow(cursor, data)
+        storeData(cursor, data)
+
     except StopIteration:
-        return []
-
-#
-# use supplied db cursor to act on db
-# store data from list
-# print out success or failure
-def storeData(cursor, data):
-    if (data == None):
         return None
 
-    if(len(data) <= 0 ):
+    except TypeError:
         return None
-
-    cursor.execute('create table if not exists results (url text, price real, title text)')
-    storeRow(cursor, iter(data))
