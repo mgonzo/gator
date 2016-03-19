@@ -1,36 +1,75 @@
 #!/usr/bin/python3
 
+import sys
 import argparse
 import subprocess
 import sqlite3
 
-from commands.fetch import *
-
-def addArg(string, arg, name=None):
-    if(name == None):
-        return string + ' {0!s}'.format(arg)
-
-    return string + ' --{0!s}={1!s}'.format(name, arg)
-
-def fetch(query, category):
-    db = 'db/gator.db'
-    connection = sqlite3.connect(db)
-    cursor = connection.cursor()
-    links = getList(query, category)
-    cursor.execute('create table if not exists results (url text, price real, title text)')
-    
-    for link in links:
-        html = fetchHtml(link)
-        storeData(cursor, getDataFromHtml(html))
-
-    connection.commit()
-    connection.close()
+from commands import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", help="the command to run")
-parser.add_argument("--query", help="the query string")
-parser.add_argument("--category", help="optional category to search")
+parser.add_argument("--query", help="optional fetch query string")
+parser.add_argument("--category", default='sss', help="optional fetch category to search")
+parser.add_argument("--tag", help="optional tag for a report")
 args = parser.parse_args()
 
-if (args.command == 'fetch'):
-    fetch(args.query, args.category)
+# Namespace(category='sss', command='fetch', query=None, tag=None)
+# query must be present
+# category must be present
+def fetchParameters():
+    if (args.query == None):
+        print('fetch None? Ok. Done.')
+        print('Next time provide a --query to fetch.\n')
+        parser.print_help()
+        sys.exit(2)
+
+    return args.category, args.query
+
+def fetchCommand(parameters, dbconn):
+    dbcursor = dbconn.cursor()
+    dbcursor.execute('create table if not exists results (url text, price real, title text)')
+    links = iter(fetch.getList(parameters[1], parameters[0]))
+    parseLinks(links, dbconn, dbcursor)
+
+allowedParameters = {}
+allowedCommands = {}
+allowedParameters['fetch'] = fetchParameters
+allowedCommands['fetch'] = fetchCommand
+
+def parseLinks(links, dbconn, dbcursor):
+    try:
+        link = next(links)
+        print(link)
+        html = fetch.fetchHtml(link)
+        fetch.storeData(dbcursor, fetch.getDataFromHtml(html))
+        fetch.storeData(dbcursor, fetch.getDataFromHtml(html))
+        dbconn.commit()
+        parseLinks(links, dbconn, dbcursor)
+
+    except StopIteration:
+        return []
+
+def getParameters(command):
+    if (command not in allowedCommands):
+        parser.print_help()
+        sys.exit(2)
+
+    if (command not in allowedParameters):
+        parser.print_help()
+        sys.exit(2)
+
+    return allowedParameters[command]()
+
+def runCommand(parameters):
+    # open db connection
+    dbfile = 'db/gator.db'
+    dbconn = sqlite3.connect(dbfile)
+    allowedCommands[args.command](parameters, dbconn)
+
+    # close db connection and exit
+    dbconn.close()
+    sys.exit(0)
+
+# kick it off ...
+runCommand(getParameters(args.command))

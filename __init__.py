@@ -1,1 +1,1 @@
-__all__ = ['gator', 'commands']
+__all__ = ['gator']

@@ -19,6 +19,11 @@ def twoRowsHtml():
 def test_fetchHtml():
     assert fetch.fetchHtml('badrequest') == None
 
+def test_getList():
+    # should return an iter
+    # assert False
+    return
+
 def test_hasNoResults():
     with open('./fixtures/noresults.html', 'r') as myfile:
         noresults = myfile.read().replace('\n', '')

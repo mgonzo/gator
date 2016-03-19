@@ -44,7 +44,7 @@ def getList(query, category):
         if (link.get('href') == "//mobile.craigslist.org/"):
             continue
         links.append(addQuery('http:' + link.get('href'), query, category))
-    return links
+    return iter(links)
 
 #
 def hasNoResults(soup):
