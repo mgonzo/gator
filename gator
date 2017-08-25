@@ -4,6 +4,7 @@ import sys
 import argparse
 import subprocess
 import sqlite3
+from datetime import datetime
 
 from commands import *
 
@@ -12,6 +13,7 @@ parser.add_argument("command", help="the command to run")
 parser.add_argument("--query", help="optional fetch query string")
 parser.add_argument("--category", default='sss', help="optional fetch category to search")
 parser.add_argument("--tag", help="optional tag for a report")
+parser.add_argument("--list", help="list all reports", action='store_true')
 args = parser.parse_args()
 
 # Namespace(category='sss', command='fetch', query=None, tag=None)
@@ -28,24 +30,53 @@ def fetchParameters():
 
 def fetchCommand(parameters, dbconn):
     dbcursor = dbconn.cursor()
-    dbcursor.execute('create table if not exists results (url text, price real, title text)')
+    dbcursor.execute('''
+        create table if not exists results 
+            (date text, 
+            query text, 
+            category text, 
+            city text, 
+            url text, 
+            price real, 
+            title text, 
+            link text)''')
+
     links = iter(fetch.getList(parameters[1], parameters[0]))
-    parseLinks(links, dbconn, dbcursor)
+    datenow = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today())
+    parseLinks(links, datenow, dbconn, dbcursor)
+
+def reportParameters():
+    if (args.list):
+        return ['list']
+    return None
+
+def reportCommand(parameters, dbconn):
+    dbcursor = dbconn.cursor()
+    if (parameters == None):
+        print('no params')
+        report.viewLast(dbcursor)
+    elif (parameters[0] == 'list'):
+        print(parameters[0])
+        report.listReports(dbcursor)
+    else:
+        print(parameters[0])
+
 
 allowedParameters = {}
 allowedCommands = {}
 allowedParameters['fetch'] = fetchParameters
 allowedCommands['fetch'] = fetchCommand
+allowedParameters['report'] = reportParameters
+allowedCommands['report'] = reportCommand
 
-def parseLinks(links, dbconn, dbcursor):
+def parseLinks(links, datenow, dbconn, dbcursor):
     try:
         link = next(links)
         print(link)
         html = fetch.fetchHtml(link)
-        fetch.storeData(dbcursor, fetch.getDataFromHtml(html))
-        fetch.storeData(dbcursor, fetch.getDataFromHtml(html))
+        fetch.storeData(dbcursor, fetch.getDataFromHtml(html, link, datenow))
         dbconn.commit()
-        parseLinks(links, dbconn, dbcursor)
+        parseLinks(links, datenow, dbconn, dbcursor)
 
     except StopIteration:
         return []

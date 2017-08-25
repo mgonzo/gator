@@ -3,6 +3,7 @@ from ..commands import fetch
 from bs4 import BeautifulSoup
 import os
 import sqlite3
+from datetime import datetime
 
 @pytest.fixture
 def oneRowHtml():
@@ -15,6 +16,52 @@ def twoRowsHtml():
     with open('./fixtures/twoRows.html', 'r') as twoRowsHtmlFile:
         twoRowsHtml = twoRowsHtmlFile.read().replace('\n', '')
     return twoRowsHtml
+
+@pytest.fixture
+def metaData():
+    return [
+            'sunfish', 
+            'boa', 
+            'losangeles', 
+            'http://losangeles.craigslist.com/search/boa?query=sunfish',
+            '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today())
+            ]
+
+@pytest.fixture
+def oneRowData():
+    return [{'price': 75, 
+            'title': 'Sunfish Sail Boat for Sale', 
+            'url': '/boa/5473914599.html',
+            'query': 'sunfish', 
+            'category': 'boa', 
+            'city': 'losangeles',
+            'link': 'http://losangeles.craigslist.com/search/boa?query=sunfish',
+            'date': '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today())
+            }]
+
+    return testOneRow
+
+@pytest.fixture
+def twoRowsData():
+    return [{'price': 125, 
+            'title': 'Sunfish Sale Boat - great shape',
+            'url': '/lac/boa/5454499053.html',
+            'query': 'sunfish', 
+            'category': 'boa', 
+            'city': 'losangeles',
+            'link': 'http://losangeles.craigslist.com/search/boa?query=sunfish',
+            'date': '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today()) }, 
+
+            {'price': 550,
+            'title': 'Hydrasail small sailboat',
+            'url': '/lac/boa/5477174831.html',
+            'query': 'sunfish', 
+            'category': 'boa', 
+            'city': 'losangeles',
+            'link': 'http://losangeles.craigslist.com/search/boa?query=sunfish',
+            'date': '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today()) }]
+
+    return testTwoRows
 
 def test_fetchHtml():
     assert fetch.fetchHtml('badrequest') == None
@@ -81,53 +128,58 @@ def test_getTitle(oneRowHtml):
     assert fetch.getUrl(soup) == None
 
 
-def test_parseRows(oneRowHtml, twoRowsHtml):
+def test_parseRows(metaData, oneRowHtml, oneRowData, twoRowsHtml, twoRowsData):
     # if next tag in list is empty return blank list
     empty = iter([])
     data = list()
-
-    emptyTags = fetch.parseRows(empty, data)
+    emptyTags = fetch.parseRows(metaData, empty, data)
     assert len(emptyTags) < 1
 
     newlineStr = '<p>\n</p>'
     newlineSoup = BeautifulSoup(newlineStr, "html.parser").find('p').children
     newline = iter([next(newlineSoup)])
-    assert len(fetch.parseRows(newline, data)) < 1
+    assert len(fetch.parseRows(metaData, newline, data)) < 1
 
     oneSoup = BeautifulSoup(oneRowHtml, "html.parser")
     oneRow = oneSoup.find('div', class_="content")
     oneTag = oneRow.findAll('p', class_="row")
-    testOneRow = [{'price': 75, 'title': 'Sunfish Sail Boat for Sale', 'url': '/boa/5473914599.html'}]
-    assert fetch.parseRows(iter(oneTag), data) == testOneRow
+    assert fetch.parseRows(metaData, iter(oneTag), data) == oneRowData
 
     twoSoup = BeautifulSoup(twoRowsHtml, "html.parser")
     twoRows = twoSoup.find('div', class_="content")
     twoTags = twoRows.findAll('p', class_="row")
     data = list()
-    testTwoRows = [
-        {'price': 125, 'url': '/lac/boa/5454499053.html', 'title': 'Sunfish Sale Boat - great shape'},
-        {'price': 550, 'title': 'Hydrasail small sailboat', 'url': '/lac/boa/5477174831.html'}
-    ]
-    assert fetch.parseRows(iter(twoTags), data) == testTwoRows
+    assert fetch.parseRows(metaData, iter(twoTags), data) == twoRowsData
 
-def test_getDataFromHtml(twoRowsHtml):
-    assert fetch.getDataFromHtml(None) == None
+def test_parseMetaData():
+    link = 'http://phoenix.craigslist.org/search/boa?query=sunfish'
+    datenow = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today())
+
+    results = fetch.parseMetaData(link, datenow)
+    assert isinstance(results, list)
+    assert results[0] == 'sunfish'
+    assert results[1] == 'boa'
+    assert results[2] == 'phoenix'
+    assert results[3] == 'http://phoenix.craigslist.org/search/boa?query=sunfish'
+    assert results[4] == datenow
+    # need to test that date returned is a date
+
+def test_getDataFromHtml(twoRowsHtml, twoRowsData):
+    link = 'http://losangeles.craigslist.com/search/boa?query=sunfish'
+    datenow = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today())
+
+    assert fetch.getDataFromHtml(None, link, datenow) == None
 
     noresults = '<html><body><div class="noresults"></div></body></html>'
-    assert fetch.getDataFromHtml(noresults) == None
+    assert fetch.getDataFromHtml(noresults, link, datenow) == None
 
     twoSoup = BeautifulSoup(twoRowsHtml, "html.parser")
     twoRows = twoSoup.find('div', class_="content")
     twoTags = twoRows.findAll('p', class_="row")
 
-    testTwoRows = [
-        {'price': 125, 'url': '/lac/boa/5454499053.html', 'title': 'Sunfish Sale Boat - great shape'},
-        {'price': 550, 'title': 'Hydrasail small sailboat', 'url': '/lac/boa/5477174831.html'}
-    ]
-
-    data = fetch.getDataFromHtml(twoRowsHtml)
-    assert next(data) == testTwoRows[0]
-    assert next(data) == testTwoRows[1]
+    data = fetch.getDataFromHtml(twoRowsHtml, link, datenow)
+    assert next(data) == twoRowsData[0]
+    assert next(data) == twoRowsData[1]
 
 #
 # takes data in
@@ -137,7 +189,7 @@ def test_getDataFromHtml(twoRowsHtml):
 #   by retreiving expected results from db
 # assert success message
 # assert failure message
-def test_storeData():
+def test_storeData(twoRowsData):
     db = 'tests/db/example.db'
     connection = sqlite3.connect(db)
     cursor = connection.cursor()
@@ -145,27 +197,32 @@ def test_storeData():
     nodata = None
     assert fetch.storeData(cursor, nodata) == None
 
-    #emptydata = list()
-    #assert fetch.storeData(cursor, emptydata) == None
+    cursor.execute('''
+        create table if not exists results 
+            (date text, 
+            query text, 
+            category text, 
+            city text, 
+            url text, 
+            price real, 
+            title text, 
+            link text)''')
 
-    data = [
-        {'url': '/boa/5372351858.html', 'price': 1000, 'title': 'Sunfish Sailboat'},
-        {'url': '/boa/0000000000.html', 'price': 500, 'title': 'Two Sunfish Sailboat'}
-    ]
+    fetch.storeData(cursor, iter(twoRowsData))
+    connection.commit()
 
-    cursor.execute('create table if not exists results (url text, price real, title text)')
-
-    fetch.storeData(cursor, iter(data))
     cursor.execute('select * from results')
 
     firstrow = cursor.fetchone()
     print("FIRST ROW")
     print(firstrow)
-    assert firstrow == ('/boa/5372351858.html', 1000.0, 'Sunfish Sailboat')
+    assert firstrow == ('{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today()), 'sunfish', 'boa', 'losangeles', '/lac/boa/5454499053.html', 125.0, 'Sunfish Sale Boat - great shape', 'http://losangeles.craigslist.com/search/boa?query=sunfish')
 
     secondrow = cursor.fetchone()
-    assert secondrow == ('/boa/0000000000.html', 500.0, 'Two Sunfish Sailboat')
+    print("SECOND ROW")
+    print(secondrow)
+    assert secondrow == ('{0:%Y-%m-%d %H:%M:%S}'.format(datetime.today()), 'sunfish', 'boa', 'losangeles', '/lac/boa/5477174831.html', 550.0, 'Hydrasail small sailboat', 'http://losangeles.craigslist.com/search/boa?query=sunfish')
 
     # clean up
-    #if os.path.isfile(db):
-    #    os.remove(db)
+    if os.path.isfile(db):
+        os.remove(db)

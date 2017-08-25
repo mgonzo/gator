@@ -1,1 +1,1 @@
-__all__ = ['fetch']
+__all__ = ['fetch', 'report']

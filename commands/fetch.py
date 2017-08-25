@@ -5,6 +5,7 @@ from urllib import error
 import http
 from bs4 import BeautifulSoup
 import re
+from urllib import parse
 
 #
 def fetchHtml(url):
@@ -104,13 +105,19 @@ def getTitle(tag):
 # and call next(iter) on first line
 # instead of calling next(iter) before
 # calling this function
-def parseRows(tags, data):
+def parseRows(metadata, tags, data):
     try:
         tag = next(tags)
         row = dict()
         row['url'] = getUrl(tag)
         row['price'] = getPrice(tag)
         row['title'] = getTitle(tag)
+        row['query'] = metadata[0] 
+        row['category'] = metadata[1]
+        row['city'] = metadata[2]
+        row['link'] = metadata[3]
+        row['date'] = metadata[4]
+        # get the description
 
         if (not isinstance(row['url'], str)):
             return []
@@ -121,7 +128,7 @@ def parseRows(tags, data):
 
         print(row)
         data.append(row)
-        parseRows(tags, data)
+        parseRows(metadata, tags, data)
 
     except StopIteration:
         return []
@@ -137,11 +144,21 @@ def parseRows(tags, data):
 
     return data
 
+
+def parseMetaData(link, datenow):
+    parsed = parse.urlparse(link)
+    query = parse.parse_qs(parsed.query)['query'][0]
+    cat = parsed.path.split('/')[2]
+    city = parsed.netloc.split('.')[0]
+    date = datenow 
+
+    return [query, cat, city, link, datenow]
+
 #
 # get the tags list
 # call parseRows
 # return data
-def getDataFromHtml(html):
+def getDataFromHtml(html, link, datenow):
     if(html == None):
         return None
 
@@ -149,10 +166,11 @@ def getDataFromHtml(html):
 
     if (hasNoResults(soup)):
         return None
-
+    
     content = soup.find('div', class_="content")
     tags = content.findAll('p', class_="row")
-    data = parseRows(iter(tags), [])
+    data = parseRows(parseMetaData(link, datenow), iter(tags), [])
+
     return iter(data)
 
 #
@@ -162,8 +180,9 @@ def getDataFromHtml(html):
 def storeData(cursor, data):
     try:
         row = next(data)
-        cursor.execute('''insert into results (url, price, title) 
-            values(:url, :price, :title)''', row)
+        print(row)
+        cursor.execute('''insert into results (date, query, category, city, url, price, title, link) 
+            values(:date, :query, :category, :city, :url, :price, :title, :link)''', row)
 
         storeData(cursor, data)
 
